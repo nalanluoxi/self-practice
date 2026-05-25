@@ -8,16 +8,16 @@
 float/double 会产生精度丢失，导致钱算错；而 BigDecimal 可以精确表示小数，保证金融计算绝对准确。
 1. 先看一个致命问题：float/double 精度丢失
    直接运行这段代码，你就能直观感受到问题：
-   java
-   运行
-   public class Test {
-   public static void main(String[] args) {
-   double a = 0.1;
-   double b = 0.2;
-   System.out.println(a + b);
-   // 输出结果：0.30000000000000004（不是 0.3！）
-   }
-   }
+```java
+public class Test {
+public static void main(String[] args) {
+double a = 0.1;
+double b = 0.2;
+System.out.println(a + b);
+// 输出结果：0.30000000000000004（不是 0.3！）
+}
+}
+```
    0.1 + 0.2 不等于 0.3，这在金融里是灾难：
    算账少一分、多一分，对账永远对不上
    交易、计费、利息计算出现错误，直接造成资金损失
@@ -29,12 +29,12 @@ float/double 会产生精度丢失，导致钱算错；而 BigDecimal 可以精�
 3. BigDecimal 的核心优势（金融场景刚需）
    ① 绝对精确的十进制表示
    BigDecimal 用十进制字符串 / 整数存储数字，没有任何精度丢失，0.1 就是 0.1，不会变成近似值。
-   java
-   运行
-   BigDecimal a = new BigDecimal("0.1");
-   BigDecimal b = new BigDecimal("0.2");
-   System.out.println(a.add(b));
-   // 输出：0.3 （完全正确）
+```java
+BigDecimal a = new BigDecimal("0.1");
+BigDecimal b = new BigDecimal("0.2");
+System.out.println(a.add(b));
+// 输出：0.3 （完全正确）
+```
    ② 支持自定义舍入规则
    金融计算必须严格控制四舍五入（如银行家舍入、四舍五入、向上取整）：
    利息计算
@@ -47,162 +47,164 @@ float/double 会产生精度丢失，导致钱算错；而 BigDecimal 可以精�
    ④ 提供精准的加减乘除、比较运算
    所有计算都是精确十进制运算，完全符合会计准则。
 4. 对比总结（一看就懂）
-   表格
-   类型	精度	适用场景	金融场景是否可用
-   float/double	不精确，有精度丢失	科学计算、图形、游戏	❌ 绝对禁止
-   BigDecimal	完全精确，无丢失	金融、电商、会计、计费	✅ 强制使用
-   int/long	精确（分 / 厘存储）	简易金额存储	✅ 可选（麻烦）
+
+| 类型 | 精度 | 适用场景 | 金融场景是否可用 |
+|------|------|----------|----------------|
+| float/double | 不精确，有精度丢失 | 科学计算、图形、游戏 | ❌ 绝对禁止 |
+| BigDecimal | 完全精确，无丢失 | 金融、电商、会计、计费 | ✅ 强制使用 |
+| int/long | 精确（分 / 厘存储） | 简易金额存储 | ✅ 可选（麻烦） |
    补充：也有人用 long 存分（比如 1 元存 100），也能避免精度问题，但计算、格式化、展示都很麻烦，BigDecimal 是金融开发的标准最优解。
 ## bigDecimal的常见坑点有哪些
 坑 1：用 new BigDecimal(double) 构造，精度直接丢失
 错误写法
-java
-运行
+```java
 BigDecimal a = new BigDecimal(0.1);
 // 结果不是 0.1，而是 0.1000000000000001...
+```
 原因：你传进去的 0.1 本身就是 double 不精确值，BigDecimal 也救不了。
 正确写法
-java
-运行
+```java
 // 字符串构造（唯一推荐）
 BigDecimal a = new BigDecimal("0.1");
+```
 坑 2：用 equals() 比较大小，结果完全不准
 错误写法
-java
-运行
+```java
 BigDecimal a = new BigDecimal("1.0");
 BigDecimal b = new BigDecimal("1.00");
 
 System.out.println(a.equals(b));
 // 输出 false！！！
+```
 原因：equals() 会同时比较数值 + 精度位数，1.0 和 1.00 精度不同，判定不相等。
 正确写法（金融比较必须用）
-java
-运行
+```java
 System.out.println(a.compareTo(b) == 0);
 // 输出 true
+```
 compareTo 规则：
 返回 -1 → 小于
 返回 0 → 等于
 返回 1 → 大于
 坑 3：除法 divide 不指定舍入模式，直接抛异常
 错误写法
-java
-运行
+```java
 BigDecimal a = new BigDecimal("1");
 BigDecimal b = new BigDecimal("3");
 a.divide(b);
 // 抛异常：ArithmeticException（无限循环小数）
+```
 原因：除不尽时，BigDecimal 不知道怎么取舍，直接报错。
 正确写法
-java
-运行
+```java
 // 保留2位小数 + 四舍五入
 a.divide(b, 2, RoundingMode.HALF_UP);
+```
 金融常用舍入模式：
 HALF_UP：四舍五入
 HALF_EVEN：银行家舍入（美股、银行常用）
 UP：向上取整
 DOWN：向下取整
 坑 4：null 值调用方法，空指针异常
-java
-运行
+```java
 BigDecimal money = null;
 money.add(new BigDecimal("10"));
 // 空指针！
+```
 解决：使用前必须判空，或默认赋值 BigDecimal.ZERO。
 坑 5：忽略 scale（小数位数），导致展示异常
-java
-运行
+```java
 new BigDecimal("10").toString();
 // 输出 10
 new BigDecimal("10.00").toString();
 // 输出 10.00
+```
 如果前端 / 数据库要求统一 2 位小数，必须手动设置：
-java
-运行
+```java
 bigDecimal.setScale(2, RoundingMode.HALF_UP);
+```
 坑 6：加减乘除不会修改原对象，必须接收返回值
 BigDecimal 是不可变对象，所有计算都会生成新对象。
 错误写法
-java
-运行
+```java
 BigDecimal a = new BigDecimal("10");
 a.add(new BigDecimal("5"));
 // a 还是 10！！！
+```
 正确写法
-java
-运行
+```java
 a = a.add(new BigDecimal("5"));
+```
 坑 7：用 valueOf(0.1) 依然会丢精度
 错误写法
-java
-运行
+```java
 BigDecimal.valueOf(0.1);
+```
 原因：本质还是传了 double。
 正确写法
-java
-运行
+```java
 BigDecimal.valueOf("10");
 // 或者
 new BigDecimal("0.1");
+```
 坑 8：与 0 比较错误
 错误写法
-java
-运行
+```java
 if (bigDecimal == BigDecimal.ZERO)
 if (bigDecimal.equals(BigDecimal.ZERO))
+```
 正确写法
-java
-运行
+```java
 if (bigDecimal.compareTo(BigDecimal.ZERO) == 0)
+```
 ## 什么是自动装箱和拆箱
 自动装箱、自动拆箱（Java 极简版）
 一句话：基本类型 ↔ 包装类，编译器自动帮你互相转换，不用手动 new。
 1. 对应关系
-   表格
-   基本类型	包装类
-   byte	Byte
-   short	Short
-   int	Integer
-   long	Long
-   float	Float
-   double	Double
-   char	Character
-   boolean	Boolean
+
+| 基本类型 | 包装类 |
+|---------|--------|
+| byte | Byte |
+| short | Short |
+| int | Integer |
+| long | Long |
+| float | Float |
+| double | Double |
+| char | Character |
+| boolean | Boolean |
 2. 自动装箱
    基本类型 → 包装类，自动封装对象
-   java
-   运行
-   Integer num = 100;
-   // 编译器自动变成：Integer num = Integer.valueOf(100);
+```java
+Integer num = 100;
+// 编译器自动变成：Integer num = Integer.valueOf(100);
+```
 3. 自动拆箱
    包装类 → 基本类型，自动取出数值
-   java
-   运行
-   int n = num;
-   // 编译器自动变成：int n = num.intValue();
+```java
+int n = num;
+// 编译器自动变成：int n = num.intValue();
+```
 4. 常见场景
    集合只能存对象，自动装箱
-   java
-   运行
-   List<Integer> list = new ArrayList<>();
-   list.add(666); // 装箱
+```java
+List<Integer> list = new ArrayList<>();
+list.add(666); // 装箱
+```
    运算时自动拆箱
-   java
-   运行
-   Integer a = 20;
-   int b = a + 10; // a先拆箱计算
+```java
+Integer a = 20;
+int b = a + 10; // a先拆箱计算
+```
 5. 高频坑：Integer 缓存 (-128~127)
-   java
-   运行
-   Integer i1 = 100;
-   Integer i2 = 100;
-   System.out.println(i1 == i2); // true 缓存复用
+```java
+Integer i1 = 100;
+Integer i2 = 100;
+System.out.println(i1 == i2); // true 缓存复用
 
 Integer i3 = 200;
 Integer i4 = 200;
 System.out.println(i3 == i4); // false 新建对象
+```
 ## Integer的（-128-127）缓存池
 Integer 缓存池（-128~127）极简讲解
 1. 是什么
@@ -210,17 +212,17 @@ Integer 缓存池（-128~127）极简讲解
 2. 触发时机
    自动装箱本质调用 Integer.valueOf(int)，只有这个方法会走缓存；new Integer() 不走缓存。
 3. 代码演示
-   java
-   运行
-   // 范围内，复用缓存同一对象
-   Integer a = 100;
-   Integer b = 100;
-   System.out.println(a == b); // true
+```java
+// 范围内，复用缓存同一对象
+Integer a = 100;
+Integer b = 100;
+System.out.println(a == b); // true
 
 // 超出范围，新建不同对象
 Integer c = 128;
 Integer d = 128;
 System.out.println(c == d); // false
+```
 4. 底层原理
    JVM 默认缓存区间固定 最小值 - 128，最大值 127
    内部维护一个 Integer 数组，提前实例化好常用小整数。
@@ -246,14 +248,16 @@ System.out.println(c == d); // false
    运行时才判定实际对象类型，方法重写属于它。
    父类引用调用方法，执行子类重写逻辑。
 ## 重载和重写的区别
-对比	重载 (Overload)	重写 (Override)
-位置	同一个类	父子类
-方法名	必须相同	必须相同
-参数列表	必须不同	必须相同
-返回值	可不同	协变兼容
-权限	宽松无限制	权限不能变小
-异常	可不同	异常范围不能扩大
-多态类型	编译时多态	运行时多态
+
+| 对比 | 重载 (Overload) | 重写 (Override) |
+|------|----------------|----------------|
+| 位置 | 同一个类 | 父子类 |
+| 方法名 | 必须相同 | 必须相同 |
+| 参数列表 | 必须不同 | 必须相同 |
+| 返回值 | 可不同 | 协变兼容 |
+| 权限 | 宽松无限制 | 权限不能变小 |
+| 异常 | 可不同 | 异常范围不能扩大 |
+| 多态类型 | 编译时多态 | 运行时多态 |
 ## Java为什么不支持多继承
 菱形问题：多个父类同名方法，子类无法判定执行哪个
 避免类层级逻辑混乱、歧义冲突
@@ -269,24 +273,24 @@ System.out.println(c == d); // false
    子类C
    形状像菱形，故名菱形问题。
 2. 代码模拟冲突场景
-   java
-   运行
-   // 两个父类都有同一个show方法
-   class A {
-   public void show(){
-   System.out.println("A方法");
-   }
-   }
-   class B {
-   public void show(){
-   System.out.println("B方法");
-   }
-   }
+```java
+// 两个父类都有同一个show方法
+class A {
+public void show(){
+System.out.println("A方法");
+}
+}
+class B {
+public void show(){
+System.out.println("B方法");
+}
+}
 
 // 假如Java允许类多继承
 class C extends A,B{
 // 调用show()，到底执行A还是B的？编译器分不清
 }
+```
 子类调用show()，编译器不知道该跑哪个父类方法，产生二义性。
 3. Java 解决方案
    类只能单继承，杜绝菱形冲突
@@ -351,8 +355,7 @@ getClass ()：运行时，类已初始化完毕
 forName：运行时，主动加载并初始化类
 
 补充小例子
-java
-运行
+```java
 class Demo{
 static {
 System.out.println("静态块执行");
@@ -365,6 +368,7 @@ Demo d = new Demo();
 Class c2 = d.getClass();
 // 3. 立刻打印静态块内容
 Class c3 = Class.forName("Demo");
+```
 ## 如何通过反射创建一个对象
 // 无参构造
 Class<?> clazz = User.class;
@@ -378,8 +382,7 @@ User u = (User) c.newInstance("张三",20);
 getDeclaredField(字段名)：获取本类任意权限成员变量，包含 private
 setAccessible(true)：关闭权限校验，突破私有访问限制
 set(对象实例, 赋值内容)：给指定对象的字段设值
-java
-运行
+```java
 // 获取私有name字段
 Field nameField = clazz.getDeclaredField("name");
 // 暴力访问私有成员
@@ -388,18 +391,19 @@ nameField.setAccessible(true);
 nameField.set(obj, "李四");
 // 取值
 String val = (String) nameField.get(obj);
+```
 二、反射调用私有方法
 getDeclaredMethod(方法名,参数类型...)：获取私有方法
 setAccessible(true)：破除私有权限
 invoke(对象实例,方法入参...)：执行方法，返回执行结果
-java
-运行
+```java
 // 获取无参私有say方法
 Method sayMethod = clazz.getDeclaredMethod("say");
 // 放开访问权限
 sayMethod.setAccessible(true);
 // 调用方法
 Object result = sayMethod.invoke(obj);
+```
 补充区分
 getField：只能拿 public 字段，拿不到私有
 getDeclaredField：可获取所有权限字段
@@ -422,12 +426,13 @@ MyBatis
 Error：JVM 级别的严重错误，程序处理不了，只能崩溃
 Exception：代码级别的异常，程序可以捕获处理
 详细区别
-表格
-Error	Exception
-严重性	极严重（JVM 崩了）	一般（代码问题）
-能否捕获	能捕获，但不应该处理	必须捕获 / 抛出
-来源	JVM、系统、硬件	代码逻辑、参数、空指针等
-例子	OOM、栈溢出	空指针、数组越界、类型转换
+
+| 对比 | Error | Exception |
+|------|-------|-----------|
+| 严重性 | 极严重（JVM 崩了） | 一般（代码问题） |
+| 能否捕获 | 能捕获，但不应该处理 | 必须捕获 / 抛出 |
+| 来源 | JVM、系统、硬件 | 代码逻辑、参数、空指针等 |
+| 例子 | OOM、栈溢出 | 空指针、数组越界、类型转换 |
 
 ## 常见的Error/Exception有哪些
 
@@ -488,8 +493,7 @@ System.exit(0); 直接关闭 JVM
 
 超级大坑：finally 里的 return 会覆盖 try/catch 里的 return！
 例子：
-java
-运行
+```java
 int test(){
 try {
 return 1;
@@ -497,6 +501,7 @@ return 1;
 return 2;
 }
 }
+```
 结果返回 2
 规则
 finally 最后执行
@@ -930,11 +935,12 @@ FD 数组视角
    无等待阻塞，CPU 资源利用率最高
    适合大文件磁盘批量读写、高吞吐离线业务
    核心对比总结
-   表格
-   模型	读写触发	线程状态	FD 数组作用	磁盘交互特点
-   BIO	线程主动调用	阻塞等待	单线程绑定单个 FD	串行读写，资源利用率低
-   NIO	线程主动读取就绪 FD	不阻塞，事件触发	批量托管 FD，内核监控状态	批量监听，按需读取
-   AIO	内核完成后回调	全程脱离 IO	仅标识资源，内核调度	全异步托管，效率最优
+
+| 模型 | 读写触发 | 线程状态 | FD 数组作用 | 磁盘交互特点 |
+|------|---------|---------|------------|------------|
+| BIO | 线程主动调用 | 阻塞等待 | 单线程绑定单个 FD | 串行读写，资源利用率低 |
+| NIO | 线程主动读取就绪 FD | 不阻塞，事件触发 | 批量托管 FD，内核监控状态 | 批量监听，按需读取 |
+| AIO | 内核完成后回调 | 全程脱离 IO | 仅标识资源，内核调度 | 全异步托管，效率最优 |
 
 
 # JUC相关八股文
