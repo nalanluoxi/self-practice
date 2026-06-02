@@ -1,0 +1,98 @@
+# 冀子彦
+
+icon:phone 184-3543-2214 ｜ icon:school 太原理工大学 · 软件工程（211）· 2023–2027 ｜ icon:birthday 2005.04.03
+
+---
+
+## icon:work 实习经历
+
+**美团（北京三快科技）｜ 后端工程师 ｜ Friday数据组 / LongCat大模型预训练语料团队**
+2025.08 – 2026.05
+
+参与 LongCat 大模型预训练语料库建设，主导 Sitemap 新链发现环路的架构设计与需求落地。
+
+---
+
+**多线程并发重构与消息队列扩容**｜原单线程消费 Mafka 导致消息严重积压（1.6–2.5 万条/时）；将消费架构重构为回调线程 + 独立业务线程池异步并行模型，线程池使用 SynchronousQueue 防止堆积 OOM，同步将分区数从 200 扩容至 400；每分钟处理峰值从 1.6k–20k 升至 **1300 万/分钟**，日新链产出提升至 **1000w–3000w**。
+
+---
+
+**Sitemap 发现环路三级限流体系**｜大站持续挤兑小站导致小站饥饿，无效 URL 混入管道浪费资源；构建三级限流体系（集群/单机层接入 Rhino OneLimiter、站点层自定义滑动窗口计数器），前置四级拦截链（黑名单→后缀→正则→Redis去重），并实现线程池水位与限流阈值自适应联动；大/小站资源分配趋于公平，系统吞吐稳定可控。
+
+---
+
+**GZIP 压缩 Sitemap 解析能力补齐**｜日均 400 万+ 的 .gz 格式 Sitemap 因原链路无感知被全量丢弃；基于 GZIPInputStream 实现流式解压并对接原有解析器，通过 URL 扩展名自动路由，零改动下游逻辑；日新链发现量峰值从 1000w–3000w 升至 **5000w–8000w**。
+
+---
+
+**站点频度调度策略建设（三维打分模型）**｜全量站点固定周期调度，高频站点更新滞后，低频站点反复空跑；设计三维打分模型（新链发现率 × w1 + 站点规模 × w2 + 历史覆盖率缺口 × w3），Hive + Spark 离线计算，调度结果实时回写形成闭环，高分站点缩短间隔、低分延长；日链接产出从 8000w 升至 **1.3–1.5 亿**，频度模块贡献新链 **300w–500w**。
+
+---
+
+**DSL 规则引擎治理垃圾/作弊站点**｜垃圾站点持续混入管道，规则变更依赖代码发布周期长；接入 MDP 配置中心动态下发，volatile 原子替换 Pattern 引用实现秒级热生效，支持 AND/OR/NOT DSL 语法自助配置，Pattern 预编译缓存复用，拦截逻辑前置于去重和限流；日均拦截 **4–5 亿**，规则生效从分钟级压缩至**秒级**，高质量站点率从 **4.1% 升至 11.9%**。
+
+---
+
+**网页截图抓取全链路服务建设**｜多模态大模型训练需大规模高质量截图，截图任务 CPU/内存开销大，与主链路共享资源会相互干扰；基于 Playwright 引擎全页面 JS 渲染截图，独立线程池与主链路彻底隔离，截图结果流式上传 S3 规避堆内存 OOM；核心链路已完成，持续优化中。
+
+---
+
+## icon:project 个人项目
+
+### 智析 RAG —— 基于 Spring AI 的企业级 RAG 对话系统
+
+**技术栈**：Java 17 · Spring Boot 3 · Spring AI · PostgreSQL (pgvector) · Redis · RocketMQ
+
+- **多通道并行检索**：CompletableFuture 同时发起全局向量检索与意图定向检索，两路结果合并去重后经 LLM 重排序，兼顾召回率与精准度
+- **Chat / Embedding 双维熔断路由**：三态熔断器（CLOSED → OPEN → HALF_OPEN）+ 失败率阈值自动切换备用模型；Chat 通道引入首包探测，防止脏流写入用户端
+- **意图树三级分类**：领域 → 类目 → 话题，LLM 分类后将检索范围收敛至目标向量空间，降低无效检索开销
+- **持久化对话记忆与摘要压缩**：PostgreSQL 持久化多轮对话，超 10 轮后自动 LLM 压缩为摘要，解决长上下文 Token 超限问题
+- **全流水线降级容错**：各阶段（检索 / 重排 / 生成）独立捕获异常并降级，单点故障不影响整体链路可用性
+
+---
+
+## icon:skill 专业技能
+
+### Java 基础与集合
+- 熟悉 Java 语言特性；熟悉 HashMap 底层实现：数组 + 链表/红黑树，负载因子 0.75，扩容 2 倍，JDK8 尾插法解决 JDK7 头插法死链问题；了解 ConcurrentHashMap JDK8 CAS + synchronized 分段锁原理
+
+### JUC 并发
+- 熟悉 synchronized（偏向锁→轻量级锁→重量级锁升级）、ReentrantLock（AQS 双向队列 + CAS state）
+- 熟悉 volatile：内存可见性（MESI 缓存一致性协议）+ 禁止指令重排序（内存屏障）；了解 happens-before 规则
+- 熟悉 ThreadLocal：ThreadLocalMap 弱引用 key，使用后需 remove() 防内存泄漏
+- 熟悉线程池 ThreadPoolExecutor：7 大参数，四种拒绝策略；实际项目中用于并发消费 Mafka 消息
+- 熟悉 Semaphore、CountDownLatch、CompletableFuture 异步编排
+
+### JVM
+- 了解 JVM 内存模型：堆（新生代 Eden/S0/S1 + 老年代）、方法区/元空间、虚拟机栈、程序计数器
+- 了解类加载机制：双亲委派模型，Bootstrap → Extension → Application，防止核心类被覆盖
+- 了解主流 GC 算法：标记-清除、标记-整理、复制算法；CMS 与 G1 的区别（G1 Region 化，可预测停顿）
+- 了解使用 Arthas（jstack / dashboard / watch）定位线程死锁、方法耗时；使用 MAT 分析堆 dump，定位内存泄漏
+
+### Spring 生态
+- 熟悉 Spring IoC 容器：Bean 生命周期（实例化→依赖注入→初始化→销毁），三级缓存解决循环依赖
+- 熟悉 Spring AOP：JDK 动态代理（接口）vs CGLIB 字节码增强（无接口），实际应用于日志、事务、限流切面
+- 熟悉 SpringBoot 自动配置原理：@EnableAutoConfiguration + spring.factories SPI 机制
+- 熟悉 MyBatis：#{} 预编译防 SQL 注入 vs ${} 字符串拼接；一级缓存（SqlSession）/ 二级缓存（Mapper）
+- 项目中应用**责任链模式**（拦截链）、**策略模式**（限流策略）、**观察者模式**（配置热更新）
+
+### MySQL
+- 熟悉事务 ACID 与隔离级别（RU / RC / RR / Serializable），InnoDB 默认 RR
+- 熟悉 InnoDB 存储引擎：B+ 树索引（聚簇索引 vs 二级索引回表），页大小 16KB
+- 熟悉 MVCC 实现原理：ReadView + undo log 版本链，RR 事务开始时生成 ReadView，RC 每次读取生成
+- 熟悉 SQL 调优：EXPLAIN 分析执行计划，关注 type（ref/range/all）、key、rows、Extra；覆盖索引避免回表
+
+### Redis
+- 熟悉 Redis 五大数据结构及底层编码（ziplist / listpack / skiplist / hashtable）
+- 熟悉缓存三大问题：穿透（布隆过滤器）、击穿（热点 key 加互斥锁/逻辑过期）、雪崩（随机 TTL / 集群高可用）
+- 熟悉 Redis 持久化：RDB（全量快照）vs AOF（写命令追加），AOF rewrite 机制
+- 了解 Redis Cluster 分槽原理（16384 槽），一致性哈希
+
+### Kafka / Mafka 消息队列
+- 熟悉 Kafka 核心概念：Topic / Partition / ConsumerGroup，同一 ConsumerGroup 内一个 Partition 只能被一个 Consumer 消费
+- 熟悉**分区扩容**：实际将 Mafka 从 200 分区扩容至 400 分区，最大化并行消费吞吐
+- 熟悉**异步多线程消费**架构：Mafka 回调线程 + 业务线程池解耦，消费吞吐大幅提升
+- 了解 Kafka 消息可靠性：acks=all、min.insync.replicas、幂等 Producer
+
+### 其他
+- 了解 Git 工作流：branch / rebase / cherry-pick；了解 Linux 常用命令与排查工具（top / jstat / tcpdump）

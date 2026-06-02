@@ -1,0 +1,134 @@
+JS抓取相关举措
+
+1. 抓取引擎架构升级（Selenium -> Playwright）抓取引擎架构升级与并发性能优化
+
+场景：
+原有 Selenium 引擎架构下，需人工维护复杂的线程调度、心跳探活及异步轮询机制，维护成本极高且逻辑冗长。同时，由于资源分配不均且缺乏高效的并发管理，系统单机吞吐量存在明显瓶颈，难以支撑高并发业务需求，且对现代化 JS 渲染的支持存在局限。同时经过其他同学的测试，对比 Selenium 和 Playwright 两种浏览器模拟抓取技术，分别使用两种浏览器模拟抓取技术进行多进程网页抓取，Playwright 更优，可以避免不稳定的等待。
+
+结果：
+成功集成 Playwright 引擎并重构底层并发模型。通过引入 Browser Context（浏览器上下文）技术与自定义线程池管理机制，实现了轻量化的多租户模拟与任务的有序调度。新架构彻底去除了繁琐的探活与轮询逻辑，实现了抓取流程的同步解耦。在确保对最新版本 Chrome 完美兼容的同时，大幅提升了系统在高并发场景下的资源复用率与抓取效能。
+
+
+2. 服务器基础设施治理
+
+场景：
+Playwright 在生产环境部署时面临底层库（glibc, gcc）版本过低的兼容性挑战，导致本地测试成功但线上无法运行。在尝试"依赖降级"等方案无果后，急需一套标准化的底层升级方案。
+
+结果：
+完成了对服务器 glibc 及 gcc 核心库的深度升级，彻底解决了高版本浏览器的运行依赖问题。同时，将升级流程沉淀为标准化自动化脚本，实现了全量服务器的平滑迁移与批量化升级，大幅降低了后续环境扩容的运维成本。
+
+
+================================================================================
+
+sitemap 站点发现相关举措
+
+1. 流量打散逻辑与精准限流体系建设（20251110）
+
+场景：
+原系统缺乏有效的流量控制与打散机制，导致 Sitemap 发现环路处于"无序竞争"状态。大站点利用其海量的 sitemap 链接占据了 Mafka 消息队列的绝大部分带宽，产生严重的数据倾斜，直接挤兑了小站点的挖掘资源，造成小站任务长时间积压、挖掘时效性极差。
+
+结果：
+在 SitemapRequestConsumer 的消息处理链路中，从 0 到 1 构建了三级限流防护网：
+
+- 集群层：通过 sitemapService.isClusterQpsLimited() 接入内部 Rhino OneLimiter（sitemap_cluster_qps_limit 入口），在集群维度统一管控总请求速率；
+- 单机层：通过 sitemapService.isSingleNodeQpsLimited()（sitemap_limit_single_node 入口）对单实例流量进行兜底限制，防止单节点过载；
+- Redis 精确层：通过 sitemapService.isSiteQpsLimited(request) 以 EffectiveTldFinder.getAssignedDomain() 提取顶级域作为 uuid，实现站点级精确限频（sitemap_limit 入口）。
+
+拦截前置优化：在限流判断之前，先依次执行黑名单过滤（blackDomainSet）、URL 格式校验（isValidUrl）、URL 后缀黑名单过滤（urlBlackListSuffixes）及 Redis 去重检查。将无效流量拦截逻辑前置于限流入口之前，确保有效的限流配额不被黑名单/重复请求消耗，解决了大站挤兑小站的顽疾，实现了流量的公平调度。调度分配从原先集中于凌晨 3 点与下午 3 点，优化后均匀产出，集群 QPS 在 6-8 左右。
+
+
+2. 系统并发性能优化（多线程重构与集群扩容）（20251117）
+
+场景：
+初始系统采用单线程消费模式，且单次任务同步处理耗时较长（约 15s），导致集群 QPS 低于 10。在面对百万级站点发送量时，系统吞吐量严重触顶，无法支持大规模的 Sitemap 发现需求。
+
+结果：
+并发架构重写：在 SitemapRequestConsumer 中使用 SynchronousQueue 作为线程池队列，配合 @PostConstruct 初始化固定大小的 ThreadPoolExecutor（线程数通过 MDP 配置 sitemap_thread_num 动态注入，支持热变更）。receive() 方法仅负责 Mafka 消息的反序列化与前置过滤，通过 addRequestToThreadPool() 将实际的 sitemap 下载任务异步提交给线程池执行，实现了消息拉取与业务处理的完全解耦。
+
+线程池满时采用 synchronized + 自旋等待（每次 sleep 1s，最长等待 36s），超时后通过 sitemapPublishService.sendRequest() 将消息重新投递回 MQ，保证消息不丢失。
+
+资源弹性扩展：完成 Mafka 集群从 200 分区至 400 分区的翻倍扩容，消除了传输链路的物理瓶颈。
+
+性能指标突破：小时抓取量从 2.5w 跃升至 96w，峰值 QPS 达到 400。日均新链发现量从 2-3 亿提升至 10-14 亿（最高产出达 75 亿），相较原有每分钟集群抓取 400-1500 的水平，上升 16 倍。
+
+
+3. 动态自适应本地限流优化（20251127）
+
+场景：
+在初步建立三级限流后，由于前两层过滤仍是比例过滤，大站流量占比依然较高。且固定阈值的限流无法感知下游处理能力（线程池负载）的实时变化，存在系统资源浪费或过载的风险，同时线程池无法打满，无法充分发挥并发能力。
+
+结果：
+落地自适应反馈机制：在 LimiteUtils 中引入了基于时间窗口的站点级本地限流器（CounterRateLimiter，使用 ConcurrentSkipListMap 实现滑动窗口计数）。在 setup() 方法中启动后台探测线程，每秒采样线程池的 activeCount 和 corePoolSize，调用 LimiteUtils.updateAdaptiveLimitQuota() 方法，将活跃线程数与 80% 水位阈值对比的结果写入长度为 3 的历史队列。当连续 3 次均低于水位时自动扩大限流配额（LIMITE_COUNT++），连续 3 次均超过水位时自动收缩（LIMITE_COUNT--），配额边界由配置项 sitemap_limite_count_max 约束，建立"线程池健康度-限流阈值"动态联动模型，实现了精细化的自适应限频。
+
+业务产出提升：Sitemap 环节对英文留存贡献显著，留存量从 2000w 提升至 1.2 亿。针对 1000w 站点的全量发现任务，处理时长缩短至 3-4 小时，峰值集群 QPS 达到 1417+。
+
+
+4. 压缩包资源解析能力补齐（20251217）
+
+场景：
+原处理链路中存在功能盲区，所有以压缩包格式（.gz）存放的 Sitemap 信息被系统直接视为无效并丢弃，导致大量高质量新链资源流失。
+
+结果：
+在 SitemapRequestConsumer.addRequestToThreadPool() 的线程池提交逻辑中，任务进入线程池后，调用 CompressedUtil.isValid(request) 对 URL 后缀进行判断（识别 .gz 结尾且排除 tar.gz 的资源）。若命中，在 SitemapDownloader 内部调用 CompressedUtil.getCompressedData() 执行 GZIP 解压（GZIPInputStream 流式解压，UTF-8 编码输出），将解压后的 XML 文本交由 SiteMapParser 正常解析。完整保留了原有的 Redis 去重、限流、CAT 监控等处理链路。
+
+上线后日均处理压缩包流量达 400w+，压缩包资源贡献了约 4.08%～16.23% 的新链。全面推全后，新链发现量从 3.79 亿激增至 52.6 亿，实现了 14 倍的产出增长。当日进入线程池流量 10000w，压缩包 400w，占比 4.08%。
+
+
+5. 频度调度（20260204）
+
+场景：
+早期方案每天固定调度全量 robots.txt 进行挖掘，随着 robots 数量增加，资源利用率极低——高频更新站点调度不足，低频更新站点浪费资源。为了进一步优化策略，引入频度调度 sitemap，根据 sitemap 新链接产出效果对链接打分，根据打分结果进行差异化调度。
+
+结果：
+在 SitemapService.downLoadSitemap() 中，通过 resolveExpireTimeByGrade() 方法将 Redis 去重记录的过期时间与频度等级关联：从请求的 ext 字段中解析 grade 值，grade=1（高频）的 sitemap 设置 3 小时过期，grade=2（中频）设置 5 小时过期，低频/无等级使用默认配置值。SitemapPublishService 投递时透传 ext（含 batchId、dispatchTs、grade），实现了按频度动态控制重复抓取间隔，对于高频更新站点提高调度频次，对于低频更新站点降低调度频次，节约资源。
+
+在上线数日后发现链接投递效果不佳，经过排查发现打分机制过于严苛，发送链接要求过于严格导致发送量较少，严重降低新链产出量。后续经过调整，放宽评分阈值并扩充原始站点集合，产出恢复正常。
+
+
+6. 策略拦截（20260319）
+
+场景：
+对抓取链接结果人工评估后，发现大量垃圾/作弊站点混入抓取链路，严重影响新链质量，需建立规则引擎进行系统性拦截。
+
+结果：
+在 SitemapRequestConsumer 的 @PostConstruct 初始化阶段，对 MDP 配置 sitemap_regular_filter_list 中的所有正则表达式预先编译为 Pattern 对象，缓存至 regularPatternList（HashSet<Pattern>）。并通过 @MdpConfigListener 监听配置变更，实现正则缓存的热更新，无需重启即可生效，新规则秒级生效。
+
+消息处理时在 preFilterProcess() 中调用 SitemapUtil.isRegularFilterDomain() 对 domain/URL 进行批量正则匹配，将拦截逻辑置于 Redis 去重和限流判断之前，避免作弊站点消耗有效资源，有效拦截 90% 垃圾站点。
+
+
+7. 频度调度第二期优化
+
+场景：
+早期频度调度策略维度单一，仅依赖新链接产出分，未综合考量站点规模与留存质量，导致调度决策不够精准。
+
+结果：
+在 resolveExpireTimeByGrade() 的基础上完善打分体系：以新链接产出量作为新链接分，从模糊留存表中获取留存量和抓取数计算留存率（规模分），三个维度综合计算最终分数，制定更合理的打分策略。同时制定多个定时任务，通过传递 grade 参数实现一天多轮投递。抓取侧根据投递中的 grade 值动态设置 Redis 去重记录的过期时间（高频站点短 TTL，低频站点长 TTL），精细化控制各等级站点的重复抓取间隔，下游调度结果反馈闭环形成持续优化链路。
+
+
+8. 截图抓取（20260324）
+
+场景：
+业务方提出网页截图/图片抓取需求，原有 HTTP 文本抓取链路不支持页面渲染与截图能力。
+
+结果：
+基于已集成的 Playwright 引擎，实现全页面渲染截图并将图片上传至 S3 存储。中途遇到中文站点截图出现乱码问题，通过在服务器上安装对应的中文字体包（如 wqy-zenhei、noto-cjk 等）彻底解决，确保中文页面截图显示正常。
+
+
+9. Sitemap 环路监控体系建设
+
+场景：
+缺乏对每批次抓取数据的精细化监控，无法及时发现消息积压、高失败率、大量无效站点等问题。初期尝试接入内部 Raptor 日志监控平台，但因监控指标粒度过细、触达 type 数量上限而方案不可行。
+
+结果：
+转为采用 Redis 统计方案，以小时为粒度，在 SitemapService 的 downLoadRobotsTxt() 和 parseSitemapAndSend() 等核心节点调用 redisService.recordTraffic() 方法，按 batchId+batchHour 维度精确累计每批次的抓取量与新链发现量（sitemap_funnel_robots_suc、sitemap_funnel_url_found、sitemap_funnel_sitemapIndex_found 等 key）。配合 CAT 漏斗打点（sitemap.funnel.* 系列事件），实现了对全链路漏斗的实时可见，能及时发现积压问题，以及出现的失败率高、无效站点多问题。
+
+
+10. 无效站点治理
+
+场景：
+监控体系完善后发现每天有 1500w 历史积压，同时在一些批次中发现了大量无效站点，包括不限于：抓取结果为默认页面的占 27%-34%，抓取失败的占 11%-17%，抓取 robots 无 sitemap 链接的占 25%-27%，这些无效流量严重消耗了线程池资源。
+
+结果：
+在 SitemapRequestConsumer.preFilterProcess() 中扩充了对 ext 字段的解析，提取 dispatchTs 时间戳与可配置的 staleThresholdHours 比对，对超过时效窗口的历史积压消息直接丢弃（标记为 sitemap.funnel.stale），彻底消除了历史积压流量对当前批次的干扰。
+
+同时在 SitemapService.saveFailRobotsTxt() 中对失败原因进行细分（download_fail、abnormal_content、cf_blocked_1005/1020、captcha_blocked 等）并持久化到 robots_txt 表的 ext 字段，为无效站点的识别与记录提供数据基础。对于无效站点的过滤，通过设置合理的过期时间而非永久封禁，避免一次失败导致站点被彻底屏蔽，在拦截效果与站点覆盖率之间取得平衡。
