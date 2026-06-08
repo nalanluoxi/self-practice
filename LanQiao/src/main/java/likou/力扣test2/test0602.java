@@ -1,6 +1,8 @@
 package likou.力扣test2;
 
+import com.sun.source.tree.Tree;
 import likou.entity.ListNode;
+import likou.entity.TreeNode;
 
 import java.util.*;
 
@@ -18,17 +20,78 @@ public class test0602 {
     public static void main(String[] args) {
         /*int[]num={3,2,1,5,6,4};
         System.out.println(findKthLargest(num,2));*/
-        ListNode head=new ListNode(1);
+       /* ListNode head=new ListNode(1);
         head.next=new ListNode(2);
         head.next.next=new ListNode(3);
         head.next.next.next=new ListNode(4);
         head.next.next.next.next=new ListNode(5);
-        System.out.println(reverseKGroup(head,2).val);
+        System.out.println(reverseKGroup(head,2).val);*/
+        System.out.println(longestPalindrome("aaaa"));
+        System.out.println(longestPalindrome("babab"));
 
     }
 
 
-    public String longestPalindrome(String s) {
+    public static List<List<Integer>> levelOrder(TreeNode root) {
+        if (root==null){
+            return null;
+        }
+        List<List<Integer>> ans=new ArrayList<>();
+        Deque<TreeNode> deque=new LinkedList<>();
+        deque.add(root);
+        while (!deque.isEmpty()){
+            int size = deque.size();
+            List<Integer>temp=new LinkedList<>();
+            for (int i = 0; i < size; i++) {
+                TreeNode treeNode = deque.pollFirst();
+                temp.add(treeNode.val);
+                if (treeNode.left!=null){
+                    deque.addLast(treeNode.left);
+                }
+                if (treeNode.right!=null){
+                    deque.addLast(treeNode.right);
+                }
+            }
+            ans.add(temp);
+        }
+        return ans;
+    }
+
+
+    public static String longestPalindrome(String s) {
+        if(s.length()==0){
+            return "";
+        }
+        int len = s.length();
+        boolean[][]dp=new boolean[len][len];
+        for (int i = 0; i < len; i++) {
+            dp[i][i]=true;
+        }
+        int maxlen=1;
+        int start=0;
+        for (int l = 0; l <= len; l++) {
+            for (int i = 0; i <= len; i++) {
+                int end = i + l;
+                if (end>=len){
+                    continue;
+                }
+                if (s.charAt(i)==s.charAt(end)){
+                    if (l>1){
+                        dp[i][end]=dp[i+1][end-1];
+                    }else {
+                        dp[i][end]=true;
+                    }
+                }
+                if (dp[i][end]){
+                    if (l+1>maxlen){
+                        start=i;
+                        maxlen=l+1;
+                    }
+                }
+            }
+        }
+
+        return s.substring(start,start+maxlen);
 
     }
 
