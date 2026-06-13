@@ -40,8 +40,8 @@ public class 点菜问题 {
             allmoney+=i;
         }
         System.out.println("k:"+k+" m:"+m+" allmoney:"+allmoney);
-        map.forEach((key,v)->{
-            System.out.println(key+" "+v);
+        map.forEach((key,工作总结2.0.md)->{
+            System.out.println(key+" "+工作总结2.0.md);
         });
         if (m<0||k!=0){
             return -1;

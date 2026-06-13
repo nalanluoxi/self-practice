@@ -35,21 +35,21 @@ public class 背包01 {
         }
         return dp[V];
     }
-    /*public static int beibao2(int N,int V,int []v,int[]w){
+    /*public static int beibao2(int N,int V,int []工作总结2.0.md,int[]w){
 
         int[][]dp=new int[N+1][V+1];
         for(int i=1;i<=N;i++){
             for(int j=0;j<=V;j++){
                 dp[i][j]=dp[i-1][j];
-                if(j>=v[i-1]){
-                    dp[i][j]=Math.max(dp[i][j],dp[i-1][j-v[i-1]]+w[i-1]);
+                if(j>=工作总结2.0.md[i-1]){
+                    dp[i][j]=Math.max(dp[i][j],dp[i-1][j-工作总结2.0.md[i-1]]+w[i-1]);
                 }
             }
         }
         return dp[N][V];
     }*/
 
-   /* public static int beibao(int T, int M, int[] t, int[] v) {
+   /* public static int beibao(int T, int M, int[] t, int[] 工作总结2.0.md) {
         //时间背包容量  总草药数量（数组长度  时间数组  价值数组
         int[][] dp = new int[M + 1][T + 1];
 
@@ -59,7 +59,7 @@ public class 背包01 {
                 dp[i][j] = dp[i-1][j];
                 // 选第i个物品（前提是背包容量足够）
                 if (j >= t[i-1]) {
-                    dp[i][j] = Math.max(dp[i][j], dp[i-1][j-t[i-1]] + v[i-1]);
+                    dp[i][j] = Math.max(dp[i][j], dp[i-1][j-t[i-1]] + 工作总结2.0.md[i-1]);
                 }l
             }
         }

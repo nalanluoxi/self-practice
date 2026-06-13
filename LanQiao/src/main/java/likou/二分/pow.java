@@ -58,13 +58,13 @@ public class pow {
             return 1/dfs(x,-n);
         }
         if (n%2==0){
-            double v = dfs(x * x, n / 2);
-            map.put(n,v);
-            return v;
+            double 工作总结2.0.md = dfs(x * x, n / 2);
+            map.put(n,工作总结2.0.md);
+            return 工作总结2.0.md;
         } else  {
-            double v = x * dfs(x * x, n / 2);
-            map.put(n,v);
-            return v;
+            double 工作总结2.0.md = x * dfs(x * x, n / 2);
+            map.put(n,工作总结2.0.md);
+            return 工作总结2.0.md;
         }
     }*/
 }
