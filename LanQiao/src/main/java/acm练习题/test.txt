@@ -1,0 +1,148 @@
+package acm练习题;
+
+import java.util.Scanner;
+
+/**
+ * @author nalan_luoxi
+ * @version 1.0
+ * @email adrian0304@qq.com
+ * @project self-practice
+ * @package acm练习题
+ * @date 2026-06-21 10:31
+ */
+public class Test0621 {
+    public static void main(String[] args) {
+        test02();
+    }
+
+
+    public static void test02(){
+      /*  int[][]arr={
+                {1}
+        };
+        int[][] newarr = getNewarr(arr, 0, 0);
+        if (newarr.length==0){
+            System.out.println("0000");
+        }
+        for (int i = 0; i < newarr.length; i++) {
+            for (int j = 0; j < newarr[0].length; j++) {
+                System.out.print(newarr[i][j]+" ");
+            }
+            System.out.println();
+        }*/
+
+        Scanner in = new Scanner(System.in);
+        int n = in.nextInt();
+        in.nextLine();
+        int[][]arr=new int[n][n];
+        for (int i = 0; i < n; i++) {
+            String[] split = in.nextLine().split(" ");
+            for (int j = 0; j < split.length; j++) {
+                arr[i][j]=Integer.valueOf(split[j]);
+            }
+        }
+        zhan(arr,arr.length-1);
+    }
+
+    public static void zhan(int[][]arr,int m){
+        if (m==-1){
+            return;
+        }
+        int lenIndex=Integer.MAX_VALUE;
+        int len=Integer.MIN_VALUE;
+        for (int i = 0; i < arr.length; i++) {
+            int t=0;
+            for (int j = 0; j < arr[0]. length; j++) {
+                if (arr[i][j]==-1){
+                    continue;
+                }
+                t = arr[i][j] + t;
+            }
+            if (t>len ){
+                lenIndex=i+1;
+                len=t;
+            }
+        }
+
+        int heiINdex=Integer.MAX_VALUE;
+        int hlen=Integer.MIN_VALUE;
+        for (int i = 0; i < arr[0].length; i++) {
+
+            int t=0;
+            for (int j = 0; j < arr.length; j++) {
+                if (arr[j][i]==-1){
+                    continue;
+                }
+                t+=arr[j][i];
+            }
+            if (t>hlen){
+                hlen=t;
+                heiINdex=i+1;
+            }
+        }
+
+        System.out.println(lenIndex+" "+heiINdex);
+        int[][] newarr = getNewarr(arr, lenIndex-1, heiINdex-1);
+        zhan(newarr,m-1);
+
+    }
+    public static int[][]getNewarr(int[][]arr,int lenIndex,int heiINdex){
+        for (int i = 0; i < arr.length; i++) {
+            for (int j = 0; j < arr[0].length; j++) {
+                if (i==lenIndex||j==heiINdex){
+                    arr[i][j]=-1;
+                }
+            }
+        }
+        return arr;
+    }
+
+    public static void test01() {
+
+    }
+
+    public static void migong(char[][] arr) {
+        //从某一个点出发
+
+        int[][]dirs={{0,1},{1,0},{0,-1},{-1,0}};
+        //得到当前位置最小的宝藏 曼哈顿距离
+        for (int i = 0; i < arr.length; i++) {
+            for (int j = 0; j < arr[0].length; j++) {
+                int[] min = getMin(arr, i, j);
+                int x = min[0];
+                int y = min[1];
+                for (int[] dir : dirs) {
+
+                }
+            }
+        }
+        //判断四个方向移动
+
+        //移动后,递归
+
+        //判断推出递归条件
+    }
+
+    public static int[] getMin(char[][] arr, int xn, int yn) {
+        int minx = -1;
+        int miny = -1;
+        int minlen = Integer.MAX_VALUE;
+        int minB = Integer.MAX_VALUE;
+        for (int i = 0; i < arr.length; i++) {
+            for (int j = 0; j < arr[0].length; j++) {
+                if (arr[i][j] == '#' || arr[i][j] == '.' || arr[i][j] == '*' || arr[i][j]=='?') {
+                    continue;
+                }
+                int temLen = Math.abs(i - xn) + Math.abs(j - yn);
+                if (temLen < minlen && minB > arr[i][j] - '0') {
+                    minx = i;
+                    miny = j;
+                    minB = arr[i][j] - '0';
+                }
+            }
+        }
+
+        return new int[]{minx,miny,minB};
+    }
+
+}
