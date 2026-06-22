@@ -29,6 +29,8 @@ public class test0602 {
         System.out.println(longestPalindrome("aaaa"));
         System.out.println(longestPalindrome("babab"));
 
+
+        //return null;
     }
 
 
