@@ -55,6 +55,7 @@
 15. synchronized 线程通信用 Object.wait()/notify()，不是 await/join
 16. 网络带宽是IO并发的共享瓶颈：多线程爬虫并发下载共享同一网卡，带宽满后加线程不再线性提速【2026-06-22新增】
 17. Semaphore vs synchronized 限并发：Semaphore.acquire() 是阻塞等待无延迟，while+sleep 是忙等有延迟；Semaphore 需 try-finally 保证 release【2026-06-22新增】
+18. IO多路复用 ET/LT边缘触发 vs 水平触发 完全不清楚，EAGAIN编程模式不掌握【2026-06-30新增】
 
 ## 薄弱点更新规则
 每次发现新薄弱点立即追加到提示词文档「候选人历史薄弱点」列表和本记忆文件，确保下次会话自动强化复考。
